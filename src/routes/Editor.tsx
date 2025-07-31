@@ -35,11 +35,12 @@ function EntityRenderer({
   selectedEntityId: number | null;
   selectedRef: React.MutableRefObject<THREE.Mesh | null>;
 }) {
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (isPlaying) {
-      worldTick();
+      worldTick(delta);
     }
   });
+
   const transform = getTransform(id);
   const meshData = MeshComponent.get(id);
   const TRANSPARENT_PNG =
