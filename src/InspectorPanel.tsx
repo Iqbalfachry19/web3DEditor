@@ -181,7 +181,26 @@ export function InspectorPanel({ selectedEntityId }: Props) {
               <option value="/textures/metal.png">Metal</option>
               <option value="/textures/marble.png">Marble</option>
             </select>
+            {/* 🔽 File picker for custom texture */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
 
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64 = reader.result as string;
+                  handleTextureChange(base64);
+                };
+                reader.readAsDataURL(file);
+              }}
+              style={{
+                marginTop: "10px",
+                color: "white",
+              }}
+            />
             {meshData.texture && (
               <div style={{ marginTop: "8px", textAlign: "center" }}>
                 <img
