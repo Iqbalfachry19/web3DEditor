@@ -3,7 +3,7 @@ import { Sky, TransformControls } from "@react-three/drei";
 import { useEffect, useState, useRef, type JSX } from "react";
 import { saveProjectToLocal } from "../ProjectManager";
 import * as THREE from "three";
-import { createEntity } from "../ecs/Entity";
+import { allEntities, createEntity } from "../ecs/Entity";
 import { OrbitControls } from "@react-three/drei";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { worldTick } from "../ecs/world";
@@ -13,6 +13,8 @@ import {
   setTransform,
   Transform,
 } from "../ecs/components/Transform";
+import { PerspectiveCamera } from "@react-three/drei";
+
 import { Move, Rotate3D, Scaling } from "lucide-react";
 import { HierarchyPanel } from "../HierarchyPanel";
 import { AssetManagerPanel } from "../AssetManagerPanel";
@@ -104,7 +106,9 @@ export function Editor() {
   const [newEntityShape, setNewEntityShape] = useState<
     "box" | "sphere" | "camera"
   >("box");
-
+  const cameraEntity = Array.from(allEntities).find(
+    (id) => MeshComponent.get(id)?.geometry === "camera"
+  );
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const orbitRef = useRef<OrbitControlsImpl>(null);
@@ -188,7 +192,7 @@ export function Editor() {
 
         {/* 🎥 Scene View */}
         <div style={{ flexGrow: 1, position: "relative", background: "#111" }}>
-          <Canvas shadows camera={{ position: [0, 5, 10], fov: 60 }}>
+          <Canvas shadows>
             {/* Pencahayaan */}
             <ambientLight intensity={0.5} />
             <directionalLight
@@ -216,9 +220,26 @@ export function Editor() {
               {/* Lebar x Tinggi x Kedalaman */}
               <meshStandardMaterial color="#555" />
             </mesh>
+            {/* Entity Camera if in play mode */}
+            {isPlaying && cameraEntity && Transform.has(cameraEntity) && (
+              <PerspectiveCamera
+                makeDefault
+                fov={50}
+                position={[
+                  Transform.get(cameraEntity)!.position.x,
+                  Transform.get(cameraEntity)!.position.y,
+                  Transform.get(cameraEntity)!.position.z,
+                ]}
+                rotation={[
+                  Transform.get(cameraEntity)!.rotation.x,
+                  Transform.get(cameraEntity)!.rotation.y,
+                  Transform.get(cameraEntity)!.rotation.z,
+                ]}
+              />
+            )}
 
             {/* Kontrol kamera */}
-            <OrbitControls ref={orbitRef} />
+            {!isPlaying && <OrbitControls ref={orbitRef} />}
 
             {/* Transform Gizmo */}
             {selectedEntityId !== null && Transform.has(selectedEntityId) && (
