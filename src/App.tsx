@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MainMenu } from "./routes/MainMenu";
 import { Editor } from "./routes/Editor"; // your actual 3D editor
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-
+import { Project } from "./routes/Project";
 export default function App() {
   const [started, setStarted] = useState(false);
 
@@ -17,7 +17,7 @@ export default function App() {
             element={<MainMenu onProjectLoaded={() => setStarted(true)} />}
           />
         )}
-        <Route path="/project" element={<Editor />} />
+        <Route path="/project" element={<Project />} />
       </Routes>
     </BrowserRouter>
   );

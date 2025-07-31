@@ -80,7 +80,7 @@ function EntityRenderer({
   );
 }
 
-export function Editor() {
+export function Project() {
   const initialized = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [, forceUpdate] = useState(0);
