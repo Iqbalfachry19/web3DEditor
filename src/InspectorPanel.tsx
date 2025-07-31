@@ -3,6 +3,7 @@ import { Vector3 } from "three";
 
 import { Transform } from "./ecs/components/Transform";
 import { MeshComponent, setMesh } from "./ecs/components/Mesh";
+import { ScriptComponent } from "./ecs/components/Script";
 
 interface Props {
   selectedEntityId: number | null;
@@ -60,6 +61,13 @@ export function InspectorPanel({ selectedEntityId }: Props) {
   const [meshData, setMeshData] = useState<ReturnType<
     typeof MeshComponent.get
   > | null>(null);
+  const [scriptCode, setScriptCode] = useState("");
+  useEffect(() => {
+    if (selectedEntityId !== null) {
+      const code = ScriptComponent.get(selectedEntityId) || "";
+      setScriptCode(code);
+    }
+  }, [selectedEntityId]);
 
   useEffect(() => {
     if (selectedEntityId === null) return;
@@ -220,6 +228,35 @@ export function InspectorPanel({ selectedEntityId }: Props) {
             <div style={styles.divider} />
           </div>
         )}
+        <div style={styles.section}>
+          <div style={styles.sectionLabel}>Custom Script (JS)</div>
+
+          <input
+            type="file"
+            accept=".js"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || selectedEntityId === null) return;
+
+              const text = await file.text();
+              setScriptCode(text);
+              ScriptComponent.set(selectedEntityId, text);
+            }}
+          />
+
+          <textarea
+            value={scriptCode}
+            onChange={(e) => {
+              const val = e.target.value;
+              setScriptCode(val);
+              if (selectedEntityId !== null) {
+                ScriptComponent.set(selectedEntityId, val);
+              }
+            }}
+            placeholder="Paste or edit JS code here..."
+            style={{ width: "100%", height: 120, marginTop: 8 }}
+          />
+        </div>
       </div>
     </div>
   );
