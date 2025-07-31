@@ -70,7 +70,7 @@ function EntityRenderer({
   );
 }
 
-export function Editor() {
+export function Project() {
   const initialized = useRef(false);
   const [entities] = useState<number[]>([]);
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
