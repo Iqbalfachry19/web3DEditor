@@ -83,7 +83,17 @@ export function Project() {
   }, []);
 
   return (
-    <div style={{ flexGrow: 1, position: "relative", background: "#111" }}>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "#111",
+        zIndex: 0,
+      }}
+    >
       <Canvas shadows camera={{ position: [0, 5, 10], fov: 60 }}>
         {/* Pencahayaan */}
         <ambientLight intensity={0.5} />
