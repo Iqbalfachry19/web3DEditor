@@ -43,8 +43,7 @@ function EntityRenderer({
   const transform = getTransform(id);
   const meshData = MeshComponent.get(id);
   const TRANSPARENT_PNG =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AApUBjRWWsJcAAAAASUVORK5CYII=";
-
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==";
   const textureUrl = meshData?.texture ?? TRANSPARENT_PNG;
   const texture = useLoader(TextureLoader, textureUrl);
 
