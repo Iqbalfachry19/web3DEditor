@@ -18,6 +18,7 @@ import { HierarchyPanel } from "../HierarchyPanel";
 import { AssetManagerPanel } from "../AssetManagerPanel";
 import { InspectorPanel } from "../InspectorPanel";
 import { addMesh, MeshComponent } from "../ecs/components/Mesh";
+import { Name } from "../ecs/components/Name";
 
 function EntityRenderer({
   id,
@@ -48,6 +49,21 @@ function EntityRenderer({
     case "sphere":
       geometry = <sphereGeometry args={[0.5, 32, 32]} />;
       break;
+    case "camera":
+      geometry = (
+        <group>
+          <mesh>
+            <boxGeometry args={[0.4, 0.25, 0.25]} />
+            <meshStandardMaterial color={meshData.color} />
+          </mesh>
+          <mesh position={[0.3, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <coneGeometry args={[0.1, 0.2, 8]} />
+            <meshStandardMaterial color="black" />
+          </mesh>
+        </group>
+      );
+      break;
+
     case "box":
     default:
       geometry = <boxGeometry args={[1, 1, 1]} />;
@@ -85,7 +101,9 @@ export function Editor() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [, forceUpdate] = useState(0);
   const [entities, setEntities] = useState<number[]>([]);
-  const [newEntityShape, setNewEntityShape] = useState<"box" | "sphere">("box");
+  const [newEntityShape, setNewEntityShape] = useState<
+    "box" | "sphere" | "camera"
+  >("box");
 
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
@@ -272,7 +290,7 @@ export function Editor() {
             <select
               value={newEntityShape}
               onChange={(e) =>
-                setNewEntityShape(e.target.value as "box" | "sphere")
+                setNewEntityShape(e.target.value as "box" | "sphere" | "camera")
               }
               style={{
                 padding: "6px 10px",
@@ -285,6 +303,7 @@ export function Editor() {
             >
               <option value="box">Box</option>
               <option value="sphere">Sphere</option>
+              <option value="camera">Camera</option>
             </select>
 
             {/* Add Entity Button */}
@@ -309,7 +328,7 @@ export function Editor() {
                   z: lastPos.z,
                 };
                 lastPositionRef.current = newPos;
-
+                Name.set(id, newEntityShape);
                 // Add the entity with the chosen transform and shape
                 addTransform(id, newPos);
                 addMesh(id, newEntityShape, "white"); // Use newEntityShape

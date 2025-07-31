@@ -1,4 +1,5 @@
 import { allEntities } from "./ecs/Entity";
+import { Name } from "./ecs/components/Name";
 
 interface HierarchyPanelProps {
   selectedId: number | null;
@@ -18,7 +19,7 @@ export function HierarchyPanel({ selectedId, onSelect }: HierarchyPanelProps) {
         fontFamily: "sans-serif",
       }}
     >
-      {/* Top bar (simulasi File/Edit) */}
+      {/* Top bar */}
       <div
         style={{
           background: "#2d2d2d",
@@ -38,30 +39,33 @@ export function HierarchyPanel({ selectedId, onSelect }: HierarchyPanelProps) {
           padding: "6px 0",
         }}
       >
-        {Array.from(allEntities).map((id) => (
-          <div
-            key={id}
-            onClick={() => onSelect(id)}
-            style={{
-              padding: "6px 12px",
-              cursor: "pointer",
-              background: selectedId === id ? "#444" : "transparent",
-              color: selectedId === id ? "#fff" : "#ccc",
-              fontSize: "13px",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background =
-                selectedId === id ? "#444" : "#2a2a2a")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background =
-                selectedId === id ? "#444" : "transparent")
-            }
-          >
-            🧱 Entity {id}
-          </div>
-        ))}
+        {Array.from(allEntities).map((id, index) => {
+          const name = Name.get(id) ?? `Entity ${id}`;
+          return (
+            <div
+              key={id}
+              onClick={() => onSelect(id)}
+              style={{
+                padding: "6px 12px",
+                cursor: "pointer",
+                background: selectedId === id ? "#444" : "transparent",
+                color: selectedId === id ? "#fff" : "#ccc",
+                fontSize: "13px",
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background =
+                  selectedId === id ? "#444" : "#2a2a2a")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background =
+                  selectedId === id ? "#444" : "transparent")
+              }
+            >
+              🧱 {index + 1}. {name}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

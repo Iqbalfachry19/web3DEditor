@@ -1,3 +1,4 @@
+import { getName } from "./ecs/components/Name";
 import { getTransform, setTransform } from "./ecs/components/Transform";
 
 interface InspectorPanelProps {
@@ -36,7 +37,9 @@ export function InspectorPanel({ selectedEntityId }: InspectorPanelProps) {
   return (
     <div style={styles.container}>
       <div style={styles.title}>Inspector</div>
-      <div style={styles.sectionTitle}>Entity {selectedEntityId}</div>
+      <div style={styles.sectionTitle}>
+        {getName(selectedEntityId) ?? `Entity ${selectedEntityId}`}
+      </div>
 
       {transform && (
         <>
