@@ -1,4 +1,4 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Sky, TransformControls } from "@react-three/drei";
 import { useEffect, useState, useRef, type JSX } from "react";
 import { saveProjectToLocal } from "../ProjectManager";
@@ -20,6 +20,7 @@ import { AssetManagerPanel } from "../AssetManagerPanel";
 import { InspectorPanel } from "../InspectorPanel";
 import { addMesh, MeshComponent } from "../ecs/components/Mesh";
 import { Name } from "../ecs/components/Name";
+import { TextureLoader } from "three";
 
 function EntityRenderer({
   id,
@@ -41,6 +42,11 @@ function EntityRenderer({
   });
   const transform = getTransform(id);
   const meshData = MeshComponent.get(id);
+  const TRANSPARENT_PNG =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AApUBjRWWsJcAAAAASUVORK5CYII=";
+
+  const textureUrl = meshData?.texture ?? TRANSPARENT_PNG;
+  const texture = useLoader(TextureLoader, textureUrl);
 
   if (!transform || !meshData) return null;
 
@@ -48,18 +54,23 @@ function EntityRenderer({
 
   switch (meshData.geometry) {
     case "sphere":
-      geometry = <sphereGeometry args={[0.5, 32, 32]} />;
+      geometry = (
+        <mesh>
+          <sphereGeometry args={[0.5, 32, 32]} />
+          <meshStandardMaterial color={meshData.color} map={texture} />
+        </mesh>
+      );
       break;
     case "camera":
       geometry = (
         <group>
           <mesh>
             <boxGeometry args={[0.4, 0.25, 0.25]} />
-            <meshStandardMaterial color={meshData.color} />
+            <meshStandardMaterial color={meshData.color} map={texture} />
           </mesh>
           <mesh position={[0.3, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
             <coneGeometry args={[0.1, 0.2, 8]} />
-            <meshStandardMaterial color="black" />
+            <meshStandardMaterial color="black" map={texture} />
           </mesh>
         </group>
       );
@@ -67,7 +78,12 @@ function EntityRenderer({
 
     case "box":
     default:
-      geometry = <boxGeometry args={[1, 1, 1]} />;
+      geometry = (
+        <mesh>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={meshData.color} map={texture} />
+        </mesh>
+      );
       break;
   }
 
@@ -97,33 +113,33 @@ function EntityRenderer({
   );
 }
 function EntityCamera({ entityId }: { entityId: number }) {
-  const { set } = useThree();
+  const { set, camera, size } = useThree();
 
   useEffect(() => {
-    const transform = Transform.get(entityId);
-    if (!transform) return;
-
     const newCam = new THREE.PerspectiveCamera(
       50,
-      window.innerWidth / window.innerHeight,
+      size.width / size.height,
       0.1,
       1000
     );
+    set({ camera: newCam });
+  }, [entityId, set, size]);
 
-    newCam.position.set(
+  useFrame(() => {
+    const transform = Transform.get(entityId);
+    if (!transform) return;
+
+    camera.position.set(
       transform.position.x,
       transform.position.y,
       transform.position.z
     );
-
-    newCam.rotation.set(
+    camera.rotation.set(
       transform.rotation.x,
       transform.rotation.y,
       transform.rotation.z
     );
-
-    set({ camera: newCam }); // ⚠️ critical: override default camera
-  }, [entityId, set]);
+  });
 
   return null;
 }

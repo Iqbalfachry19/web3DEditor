@@ -1,158 +1,205 @@
-import { useEffect, useMemo, useState } from "react";
-import { getName } from "./ecs/components/Name";
-import { getTransform, setTransform } from "./ecs/components/Transform";
+import { useEffect, useState } from "react";
+import { Vector3 } from "three";
 
-interface InspectorPanelProps {
+import { Transform } from "./ecs/components/Transform";
+import { MeshComponent, setMesh } from "./ecs/components/Mesh";
+
+interface Props {
   selectedEntityId: number | null;
 }
 
-export function InspectorPanel({ selectedEntityId }: InspectorPanelProps) {
-  const initialTransform = useMemo(() => {
-    return selectedEntityId !== null ? getTransform(selectedEntityId) : null;
-  }, [selectedEntityId]);
+const styles = {
+  panel: {
+    width: "280px",
+    backgroundColor: "#1e1e1e",
+    color: "white",
+    fontFamily: "sans-serif",
+    fontSize: "14px",
+    borderLeft: "1px solid #444",
+    display: "flex",
+    flexDirection: "column" as const,
+    height: "100%",
+  },
+  scrollContainer: {
+    overflowY: "auto" as const,
+    padding: "16px",
+    flex: 1,
+    // or any number you want
+  },
 
-  const [localTransform, setLocalTransform] = useState(initialTransform);
+  section: {
+    marginBottom: "20px",
+  },
+  sectionLabel: {
+    fontWeight: "bold" as const,
+    marginBottom: "8px",
+  },
+  label: {
+    display: "block",
+    marginBottom: "4px",
+  },
+  input: {
+    width: "100%",
+    padding: "4px",
+    fontSize: "14px",
+    backgroundColor: "#2b2b2b",
+    color: "white",
+    border: "1px solid #555",
+    borderRadius: "4px",
+  },
+  divider: {
+    margin: "16px 0",
+    borderTop: "1px solid #444",
+  },
+};
+
+export function InspectorPanel({ selectedEntityId }: Props) {
+  const [position, setPosition] = useState<Vector3>(new Vector3());
+  const [rotation, setRotation] = useState<Vector3>(new Vector3());
+  const [scale, setScale] = useState<Vector3>(new Vector3(1, 1, 1));
+  const [meshData, setMeshData] = useState<ReturnType<
+    typeof MeshComponent.get
+  > | null>(null);
 
   useEffect(() => {
-    if (selectedEntityId !== null) {
-      setLocalTransform(getTransform(selectedEntityId));
+    if (selectedEntityId === null) return;
+
+    const transform = Transform.get(selectedEntityId);
+    if (transform) {
+      setPosition(
+        new Vector3(
+          transform.position.x,
+          transform.position.y,
+          transform.position.z
+        )
+      );
+      setRotation(
+        new Vector3(
+          transform.rotation.x,
+          transform.rotation.y,
+          transform.rotation.z
+        )
+      );
+      setScale(
+        new Vector3(transform.scale.x, transform.scale.y, transform.scale.z)
+      );
+    }
+
+    const mesh = MeshComponent.get(selectedEntityId);
+    if (mesh) {
+      setMeshData({ ...mesh });
     }
   }, [selectedEntityId]);
 
-  const handleChange = (
-    type: "position" | "rotation" | "scale",
-    axis: "x" | "y" | "z",
-    value: number
-  ) => {
-    if (!localTransform) return;
-
-    const updated = {
-      ...localTransform,
-      [type]: {
-        ...localTransform[type],
-        [axis]: value,
-      },
+  const handleVectorChange =
+    (setter: (v: Vector3) => void, current: Vector3, key: "x" | "y" | "z") =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = parseFloat(e.target.value);
+      const updated = current.clone();
+      updated[key] = isNaN(val) ? 0 : val;
+      setter(updated);
+      if (selectedEntityId !== null) {
+        Transform.set(selectedEntityId, {
+          position,
+          rotation,
+          scale,
+        });
+      }
     };
 
-    setLocalTransform(updated);
-    if (selectedEntityId !== null) {
-      setTransform(selectedEntityId, updated);
-    }
+  const handleTextureChange = (texturePath: string) => {
+    if (selectedEntityId === null || !meshData) return;
+    const updated = { ...meshData, texture: texturePath };
+    setMesh(selectedEntityId, updated);
+    setMeshData(updated);
   };
 
-  if (selectedEntityId === null) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.title}>Inspector</div>
-        <div style={styles.empty}>No entity selected</div>
-      </div>
-    );
-  }
-
   return (
-    <div style={styles.container}>
-      <div style={styles.title}>Inspector</div>
-      <div style={styles.header}>
-        {getName(selectedEntityId) ?? `Entity ${selectedEntityId}`}
-      </div>
+    <div style={styles.panel}>
+      <div style={styles.scrollContainer}>
+        <div style={styles.section}>
+          <div style={styles.sectionLabel}>Transform</div>
 
-      {localTransform &&
-        (["position", "rotation", "scale"] as const).map((type) => (
-          <div key={type} style={styles.section}>
-            <div style={styles.sectionLabel}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+          {[
+            { label: "Position", value: position, setter: setPosition },
+            { label: "Rotation", value: rotation, setter: setRotation },
+            { label: "Scale", value: scale, setter: setScale },
+          ].map(({ label, value, setter }) => (
+            <div key={label} style={{ marginBottom: "12px" }}>
+              <div style={{ marginBottom: "4px" }}>{label}</div>
+              <div style={{ display: "flex", gap: "4px" }}>
+                {(["x", "y", "z"] as const).map((axis) => (
+                  <div
+                    key={axis}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                    }}
+                  >
+                    <label style={{ fontSize: "12px", color: "#ccc" }}>
+                      {axis.toUpperCase()}
+                    </label>
+                    <input
+                      type="number"
+                      value={value[axis]}
+                      onChange={handleVectorChange(setter, value, axis)}
+                      style={{
+                        width: "60px",
+                        padding: "4px",
+                        fontSize: "13px",
+                        backgroundColor: "#2b2b2b",
+                        color: "white",
+                        border: "1px solid #555",
+                        borderRadius: "4px",
+                        textAlign: "center",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={styles.row}>
-              {(["x", "y", "z"] as const).map((axis) => (
-                <div key={axis} style={styles.inputRow}>
-                  <label style={styles.inputLabel}>{axis.toUpperCase()}</label>
-                  <input
-                    type="number"
-                    value={localTransform[type][axis]}
-                    onChange={(e) =>
-                      handleChange(type, axis, parseFloat(e.target.value) || 0)
-                    }
-                    style={styles.input}
-                  />
-                </div>
-              ))}
-            </div>
+          ))}
+        </div>
+
+        {meshData && (
+          <div style={styles.section}>
+            <div style={styles.sectionLabel}>Texture</div>
+            <select
+              value={meshData.texture ?? ""}
+              onChange={(e) => handleTextureChange(e.target.value)}
+              style={{
+                ...styles.input,
+                width: "100%",
+                padding: "6px",
+              }}
+            >
+              <option value="">None</option>
+              <option value="/textures/wood.png">Wood</option>
+              <option value="/textures/metal.png">Metal</option>
+              <option value="/textures/marble.png">Marble</option>
+            </select>
+
+            {meshData.texture && (
+              <div style={{ marginTop: "8px", textAlign: "center" }}>
+                <img
+                  src={meshData.texture}
+                  alt="Texture preview"
+                  style={{
+                    width: "100%",
+                    maxHeight: "150px",
+                    objectFit: "cover",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                  }}
+                />
+              </div>
+            )}
+
             <div style={styles.divider} />
           </div>
-        ))}
+        )}
+      </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    backgroundColor: "#1e1e1e",
-    color: "#f0f0f0",
-    padding: "12px",
-    width: "300px",
-    minWidth: "300px",
-    fontFamily: "sans-serif",
-    borderRadius: "6px",
-    fontSize: "13px",
-    border: "1px solid #333",
-  },
-  title: {
-    fontSize: "15px",
-    fontWeight: 600,
-    marginBottom: "10px",
-    color: "#fff",
-  },
-  header: {
-    fontSize: "13px",
-    fontWeight: "bold",
-    marginBottom: "12px",
-    color: "#ccc",
-    borderBottom: "1px solid #444",
-    paddingBottom: "6px",
-  },
-  section: {
-    marginBottom: "12px",
-  },
-  sectionLabel: {
-    fontWeight: 600,
-    fontSize: "13px",
-    marginBottom: "6px",
-    color: "#aaa",
-  },
-  row: {
-    display: "flex",
-    gap: "6px",
-  },
-  inputRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    flex: 1,
-  },
-  inputLabel: {
-    width: "14px",
-    color: "#bbb",
-    fontWeight: "bold",
-  },
-  input: {
-    width: "50px", // Ubah dari flex: 1 ke width tetap
-    padding: "2px 6px",
-    fontSize: "13px",
-    backgroundColor: "#2b2b2b",
-    color: "#fff",
-    border: "1px solid #555",
-    borderRadius: "3px",
-    outline: "none",
-  },
-
-  divider: {
-    height: "1px",
-    backgroundColor: "#333",
-    marginTop: "8px",
-  },
-  empty: {
-    fontStyle: "italic",
-    color: "#888",
-    paddingTop: "6px",
-  },
-} as const;
