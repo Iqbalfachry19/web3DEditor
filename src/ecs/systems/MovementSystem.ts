@@ -1,6 +1,5 @@
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
-import { runScripts } from "./Scripting";
 
 export const MovementSystem = (delta: number) => {
   for (const [entity, velocity] of Velocity.entries()) {
@@ -12,5 +11,4 @@ export const MovementSystem = (delta: number) => {
     }
     
   }
-  runScripts(delta);
 };

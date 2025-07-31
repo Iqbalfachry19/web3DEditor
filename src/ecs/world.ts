@@ -1,4 +1,5 @@
 import { MovementSystem } from "./systems/MovementSystem";
+import { runScripts } from "./systems/Scripting";
 
 let lastTime = performance.now();
 
@@ -7,7 +8,7 @@ export const worldTick = () => {
   const delta = (now - lastTime) / 1000;
 
   MovementSystem(delta);
-
+runScripts(delta);
   lastTime = now;
   requestAnimationFrame(worldTick);
 };
