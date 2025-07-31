@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { MainMenu } from "./MainMenu";
-import { Editor } from "./Editor"; // your actual 3D editor
+import { MainMenu } from "./routes/MainMenu";
+import { Editor } from "./routes/Editor"; // your actual 3D editor
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 export default function App() {
