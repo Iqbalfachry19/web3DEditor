@@ -174,7 +174,9 @@ export function InspectorPanel({ selectedEntityId }: Props) {
                 padding: "6px",
               }}
             >
-              <option value="">None</option>
+              <option value="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AApUBjRWWsJcAAAAASUVORK5CYII=">
+                None
+              </option>
               <option value="/textures/wood.png">Wood</option>
               <option value="/textures/metal.png">Metal</option>
               <option value="/textures/marble.png">Marble</option>

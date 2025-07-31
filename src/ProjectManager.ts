@@ -2,6 +2,7 @@
 import { Position } from "./ecs/components/Position";
 import { Name } from "./ecs/components/Name";
 import { MeshComponent } from "./ecs/components/Mesh";
+import { Vector3 } from "three";
 
 export function createNewProject() {
   Position.clear();
@@ -9,7 +10,7 @@ export function createNewProject() {
   MeshComponent.clear();
 
   const id = Date.now();
-  Position.set(id, { x: 0, y: 0, z: 0 });
+  Position.set(id, new Vector3(0, 0, 0));
   Name.set(id, "Cube");
   MeshComponent.set(id, {
     geometry: "box",
