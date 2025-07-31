@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Sky, TransformControls } from "@react-three/drei";
 import { useEffect, useState, useRef, type JSX } from "react";
 import { saveProjectToLocal } from "../ProjectManager";
@@ -13,7 +13,6 @@ import {
   setTransform,
   Transform,
 } from "../ecs/components/Transform";
-import { PerspectiveCamera } from "@react-three/drei";
 
 import { Move, Rotate3D, Scaling } from "lucide-react";
 import { HierarchyPanel } from "../HierarchyPanel";
@@ -97,18 +96,48 @@ function EntityRenderer({
     </mesh>
   );
 }
+function EntityCamera({ entityId }: { entityId: number }) {
+  const { set } = useThree();
+
+  useEffect(() => {
+    const transform = Transform.get(entityId);
+    if (!transform) return;
+
+    const newCam = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+
+    newCam.position.set(
+      transform.position.x,
+      transform.position.y,
+      transform.position.z
+    );
+
+    newCam.rotation.set(
+      transform.rotation.x,
+      transform.rotation.y,
+      transform.rotation.z
+    );
+
+    set({ camera: newCam }); // ⚠️ critical: override default camera
+  }, [entityId, set]);
+
+  return null;
+}
 
 export function Editor() {
   const initialized = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [, forceUpdate] = useState(0);
+  const [cameraEntity, setCameraEntity] = useState<number | null>(null);
   const [entities, setEntities] = useState<number[]>([]);
   const [newEntityShape, setNewEntityShape] = useState<
     "box" | "sphere" | "camera"
   >("box");
-  const cameraEntity = Array.from(allEntities).find(
-    (id) => MeshComponent.get(id)?.geometry === "camera"
-  );
+
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const orbitRef = useRef<OrbitControlsImpl>(null);
@@ -120,7 +149,12 @@ export function Editor() {
   const [transformMode, setTransformMode] = useState<
     "translate" | "rotate" | "scale"
   >("translate");
-
+  useEffect(() => {
+    const cam = Array.from(allEntities).find(
+      (id) => MeshComponent.get(id)?.geometry === "camera"
+    );
+    setCameraEntity(cam ?? null);
+  }, [entities, isPlaying]);
   useEffect(() => {
     Transform.clear();
     // Leave this empty to avoid creating entities at start
@@ -192,53 +226,37 @@ export function Editor() {
 
         {/* 🎥 Scene View */}
         <div style={{ flexGrow: 1, position: "relative", background: "#111" }}>
-          <Canvas shadows>
-            {/* Pencahayaan */}
+          <Canvas shadows camera={{ position: [0, 5, 10], fov: 50 }}>
+            {/* Lighting & Sky */}
             <ambientLight intensity={0.5} />
             <directionalLight
               position={[5, 10, 5]}
               intensity={1.5}
               castShadow
             />
-
-            {/* Sky seperti Unity */}
             <Sky
-              distance={450000} // Besar cakupan
-              sunPosition={[10, 10, 10]} // Arah matahari
-              inclination={0.49} // Ketinggian matahari
-              azimuth={0.25} // Arah matahari
+              sunPosition={[10, 10, 10]}
+              distance={450000}
+              turbidity={10}
+              rayleigh={1}
               mieCoefficient={0.005}
               mieDirectionalG={0.8}
-              rayleigh={1}
-              turbidity={10}
+              inclination={0.49}
+              azimuth={0.25}
             />
-            <mesh
-              receiveShadow
-              position={[0, -1, 0]} // Sesuaikan agar cube berada di bawah
-            >
-              <boxGeometry args={[100, 1, 100]} />{" "}
-              {/* Lebar x Tinggi x Kedalaman */}
+
+            {/* Ground */}
+            <mesh receiveShadow position={[0, -1, 0]}>
+              <boxGeometry args={[100, 1, 100]} />
               <meshStandardMaterial color="#555" />
             </mesh>
-            {/* Entity Camera if in play mode */}
+
+            {/* 🚀 Use entity camera in play mode */}
             {isPlaying && cameraEntity && Transform.has(cameraEntity) && (
-              <PerspectiveCamera
-                makeDefault
-                fov={50}
-                position={[
-                  Transform.get(cameraEntity)!.position.x,
-                  Transform.get(cameraEntity)!.position.y,
-                  Transform.get(cameraEntity)!.position.z,
-                ]}
-                rotation={[
-                  Transform.get(cameraEntity)!.rotation.x,
-                  Transform.get(cameraEntity)!.rotation.y,
-                  Transform.get(cameraEntity)!.rotation.z,
-                ]}
-              />
+              <EntityCamera entityId={cameraEntity} />
             )}
 
-            {/* Kontrol kamera */}
+            {/* 🎮 Orbit controls for editor */}
             {!isPlaying && <OrbitControls ref={orbitRef} />}
 
             {/* Transform Gizmo */}
