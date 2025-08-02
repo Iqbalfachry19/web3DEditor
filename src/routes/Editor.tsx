@@ -236,7 +236,7 @@ export function Editor() {
         <div style={{ marginRight: "15px", cursor: "pointer" }}>Help</div>
         <div
           style={{ marginRight: "15px", cursor: "pointer" }}
-          onClick={saveProjectToLocal}
+          onClick={() => saveProjectToLocal()}
         >
           💾 Save Project
         </div>

@@ -1,55 +1,191 @@
-.main-menu {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+/* MainMenu.css */
+
+.main-menu-container {
+    height: 100vh;
     width: 100vw;
-    background-color: #0f172a;
-    /* Equivalent to bg-gray-950 */
-    color: white;
+    background: #0a0f1a;
+    /* sama seperti landing page */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #00fff7;
+    /* neon cyan */
 }
 
-.title {
-    font-size: 2.5rem;
-    font-weight: bold;
-    margin-bottom: 1.5rem;
-}
-
-.button {
+.main-menu-card {
+    background: rgba(0, 255, 247, 0.05);
+    border: 1px solid rgba(0, 255, 247, 0.3);
+    box-shadow:
+        0 0 20px rgba(0, 255, 247, 0.3),
+        inset 0 0 10px rgba(0, 255, 247, 0.1);
+    border-radius: 1rem;
+    padding: 3rem 4rem;
     width: 100%;
-    max-width: 240px;
-    padding: 0.5rem 1rem;
-    margin-bottom: 1rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1rem;
+    max-width: 480px;
+    text-align: center;
+    backdrop-filter: blur(6px);
 }
 
-.button:disabled {
+.main-title {
+    font-size: 2.75rem;
+    margin-bottom: 0.2rem;
+    text-shadow:
+        0 0 10px #00fff7,
+        0 0 20px #00fff7,
+        0 0 30px #00fff7;
+}
+
+.main-subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    font-weight: 500;
+    opacity: 0.8;
+    text-shadow: 0 0 5px rgba(0, 255, 247, 0.5);
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+}
+
+.btn {
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0.75rem 2rem;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 0 10px rgba(0, 255, 247, 0.4);
+}
+
+.btn.primary {
+    background: linear-gradient(90deg, #00fff7, #00d1ca);
+    color: #0a0f1a;
+    box-shadow:
+        0 0 12px #00fff7,
+        0 0 25px #00fff7;
+}
+
+.btn.primary:hover:not(:disabled) {
+    filter: brightness(1.2);
+    box-shadow:
+        0 0 20px #00fff7,
+        0 0 40px #00fff7,
+        0 0 80px #00fff7;
+    transform: scale(1.1);
+}
+
+.btn.secondary {
+    background: transparent;
+    border: 2px solid #00fff7;
+    color: #00fff7;
+    box-shadow: 0 0 8px rgba(0, 255, 247, 0.3);
+}
+
+.btn.secondary:hover:not(:disabled) {
+    background: #00fff7;
+    color: #0a0f1a;
+    box-shadow:
+        0 0 20px #00fff7,
+        0 0 40px #00fff7;
+    transform: scale(1.05);
+}
+
+.btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    box-shadow: none;
+    filter: none;
+    transform: none;
 }
 
-.new-project {
-    background-color: #2563eb;
-    /* blue-600 */
-    color: white;
+.recent-projects-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 5px rgba(0, 255, 247, 0.7);
 }
 
-.new-project:hover {
-    background-color: #1d4ed8;
-    /* blue-700 */
+.project-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 250px;
+    overflow-y: auto;
 }
 
-.load-project {
-    background-color: #16a34a;
-    /* green-600 */
-    color: white;
+.project-item {
+    margin-bottom: 1rem;
 }
 
-.load-project:hover {
-    background-color: #15803d;
-    /* green-700 */
+.project-btn {
+    width: 100%;
+    background: transparent;
+    border: 2px solid #00fff7;
+    color: #00fff7;
+    padding: 0.75rem 1rem;
+    border-radius: 999px;
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 0 8px rgba(0, 255, 247, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.project-btn:hover {
+    background: #00fff7;
+    color: #0a0f1a;
+    box-shadow:
+        0 0 15px #00fff7,
+        0 0 35px #00fff7;
+    transform: scale(1.05);
+}
+
+.date {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    margin-left: 0.75rem;
+    white-space: nowrap;
+}
+
+/* Scrollbar styling for project list */
+.project-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.project-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.project-list::-webkit-scrollbar-thumb {
+    background: #00fff7;
+    border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .main-menu-card {
+        padding: 2rem 2rem;
+    }
+
+    .button-group {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .project-btn {
+        font-size: 0.9rem;
+    }
 }
