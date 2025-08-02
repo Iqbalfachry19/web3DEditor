@@ -64,11 +64,11 @@ function EntityRenderer({
     case "camera":
       geometry = (
         <group>
-          <mesh>
+          <mesh rotation={[Math.PI / 2, 0, Math.PI / 2]}>
             <boxGeometry args={[0.4, 0.25, 0.25]} />
             <meshStandardMaterial color={meshData.color} map={texture} />
           </mesh>
-          <mesh position={[0.3, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <mesh position={[0, 0, -0.3]} rotation={[Math.PI / 2, 0, 0]}>
             <coneGeometry args={[0.1, 0.2, 8]} />
             <meshStandardMaterial color="black" map={texture} />
           </mesh>
@@ -119,7 +119,7 @@ function EntityCamera({ entityId }: { entityId: number }) {
     const newCam = new THREE.PerspectiveCamera(
       50,
       size.width / size.height,
-      0.1,
+      0.4,
       1000
     );
     set({ camera: newCam });
