@@ -4,9 +4,11 @@ import { Vector3 } from "three";
 import { Transform } from "./ecs/components/Transform";
 import { MeshComponent, setMesh } from "./ecs/components/Mesh";
 import { ScriptComponent } from "./ecs/components/Script";
+import { PlayerControlled } from "./ecs/components/PlayerControlled";
 
 interface Props {
   selectedEntityId: number | null;
+  onToggleControl: (enabled: boolean) => void;
 }
 
 const styles = {
@@ -25,19 +27,13 @@ const styles = {
     overflowY: "auto" as const,
     padding: "16px",
     flex: 1,
-    // or any number you want
   },
-
   section: {
     marginBottom: "20px",
   },
   sectionLabel: {
     fontWeight: "bold" as const,
     marginBottom: "8px",
-  },
-  label: {
-    display: "block",
-    marginBottom: "4px",
   },
   input: {
     width: "100%",
@@ -54,18 +50,21 @@ const styles = {
   },
 };
 
-export function InspectorPanel({ selectedEntityId }: Props) {
-  const [position, setPosition] = useState<Vector3>(new Vector3());
-  const [rotation, setRotation] = useState<Vector3>(new Vector3());
-  const [scale, setScale] = useState<Vector3>(new Vector3(1, 1, 1));
+export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
+  const [position, setPosition] = useState(new Vector3());
+  const [rotation, setRotation] = useState(new Vector3());
+  const [scale, setScale] = useState(new Vector3(1, 1, 1));
   const [meshData, setMeshData] = useState<ReturnType<
     typeof MeshComponent.get
   > | null>(null);
   const [scriptCode, setScriptCode] = useState("");
+  const [isControlled, setIsControlled] = useState(false);
+
   useEffect(() => {
     if (selectedEntityId !== null) {
       const code = ScriptComponent.get(selectedEntityId) || "";
       setScriptCode(code);
+      setIsControlled(PlayerControlled.has(selectedEntityId));
     }
   }, [selectedEntityId]);
 
@@ -122,12 +121,22 @@ export function InspectorPanel({ selectedEntityId }: Props) {
     setMeshData(updated);
   };
 
+  const handleToggleControl = (checked: boolean) => {
+    if (selectedEntityId === null) return;
+    if (checked) {
+      PlayerControlled.add(selectedEntityId);
+    } else {
+      PlayerControlled.delete(selectedEntityId);
+    }
+    setIsControlled(checked);
+    onToggleControl(checked);
+  };
+
   return (
     <div style={styles.panel}>
       <div style={styles.scrollContainer}>
         <div style={styles.section}>
           <div style={styles.sectionLabel}>Transform</div>
-
           {[
             { label: "Position", value: position, setter: setPosition },
             { label: "Rotation", value: rotation, setter: setRotation },
@@ -176,20 +185,13 @@ export function InspectorPanel({ selectedEntityId }: Props) {
             <select
               value={meshData.texture ?? ""}
               onChange={(e) => handleTextureChange(e.target.value)}
-              style={{
-                ...styles.input,
-                width: "100%",
-                padding: "6px",
-              }}
+              style={{ ...styles.input }}
             >
-              <option value="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==">
-                None
-              </option>
+              <option value="">None</option>
               <option value="/textures/wood.png">Wood</option>
               <option value="/textures/metal.png">Metal</option>
               <option value="/textures/marble.png">Marble</option>
             </select>
-            {/* 🔽 File picker for custom texture */}
             <input
               type="file"
               accept="image/*"
@@ -204,10 +206,7 @@ export function InspectorPanel({ selectedEntityId }: Props) {
                 };
                 reader.readAsDataURL(file);
               }}
-              style={{
-                marginTop: "10px",
-                color: "white",
-              }}
+              style={{ marginTop: "10px", color: "white" }}
             />
             {meshData.texture && (
               <div style={{ marginTop: "8px", textAlign: "center" }}>
@@ -224,26 +223,23 @@ export function InspectorPanel({ selectedEntityId }: Props) {
                 />
               </div>
             )}
-
             <div style={styles.divider} />
           </div>
         )}
+
         <div style={styles.section}>
           <div style={styles.sectionLabel}>Custom Script (JS)</div>
-
           <input
             type="file"
             accept=".js"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file || selectedEntityId === null) return;
-
               const text = await file.text();
               setScriptCode(text);
               ScriptComponent.set(selectedEntityId, text);
             }}
           />
-
           <textarea
             value={scriptCode}
             onChange={(e) => {
@@ -256,6 +252,20 @@ export function InspectorPanel({ selectedEntityId }: Props) {
             placeholder="Paste or edit JS code here..."
             style={{ width: "100%", height: 120, marginTop: 8 }}
           />
+          <label
+            style={{
+              marginTop: "10px",
+              marginBottom: "100px",
+              display: "block",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={isControlled}
+              onChange={(e) => handleToggleControl(e.target.checked)}
+            />{" "}
+            Enable Input Control
+          </label>
         </div>
       </div>
     </div>

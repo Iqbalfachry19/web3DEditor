@@ -22,6 +22,9 @@ import { addMesh, MeshComponent } from "../ecs/components/Mesh";
 import { Name } from "../ecs/components/Name";
 import { TextureLoader } from "three";
 
+import { Velocity } from "../ecs/components/Velocity";
+import { PlayerControlled } from "../ecs/components/PlayerControlled";
+
 function EntityRenderer({
   id,
   onSelect,
@@ -35,9 +38,11 @@ function EntityRenderer({
   selectedEntityId: number | null;
   selectedRef: React.MutableRefObject<THREE.Mesh | null>;
 }) {
+  const [, forceUpdate] = useState(0);
   useFrame((_, delta) => {
     if (isPlaying) {
       worldTick(delta);
+      forceUpdate((v) => v + 1);
     }
   });
 
@@ -148,6 +153,10 @@ export function Editor() {
   const initialized = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [, forceUpdate] = useState(0);
+  const [controlledEntities, setControlledEntities] = useState<Set<number>>(
+    new Set()
+  );
+
   const [cameraEntity, setCameraEntity] = useState<number | null>(null);
   const [entities, setEntities] = useState<number[]>([]);
   const [newEntityShape, setNewEntityShape] = useState<
@@ -176,6 +185,24 @@ export function Editor() {
     // Leave this empty to avoid creating entities at start
     initialized.current = true;
   }, []);
+
+  useEffect(() => {
+    if (isPlaying && selectedEntityId !== null) {
+      if (!Velocity.has(selectedEntityId)) {
+        Velocity.set(selectedEntityId, { x: 0, y: 0, z: 0 });
+      }
+
+      if (!Transform.has(selectedEntityId)) {
+        addTransform(selectedEntityId, { x: 0, y: 0, z: 0 });
+      }
+
+      if (controlledEntities.has(selectedEntityId)) {
+        PlayerControlled.add(selectedEntityId);
+      } else {
+        PlayerControlled.delete(selectedEntityId);
+      }
+    }
+  }, [isPlaying, selectedEntityId, controlledEntities]);
 
   return (
     <div
@@ -387,6 +414,7 @@ export function Editor() {
                 // Add the entity with the chosen transform and shape
                 addTransform(id, newPos);
                 addMesh(id, newEntityShape, "white"); // Use newEntityShape
+                Velocity.set(id, { x: 0, y: 0, z: 0 });
 
                 // Update the entities array for rendering
                 setEntities((prev) => [...prev, id]);
@@ -461,7 +489,19 @@ export function Editor() {
           }}
         >
           <h3>Inspector</h3>
-          <InspectorPanel selectedEntityId={selectedEntityId} />
+          <InspectorPanel
+            selectedEntityId={selectedEntityId}
+            onToggleControl={(enabled) => {
+              setControlledEntities((prev) => {
+                const updated = new Set(prev);
+                if (selectedEntityId !== null) {
+                  if (enabled) updated.add(selectedEntityId);
+                  else updated.delete(selectedEntityId);
+                }
+                return updated;
+              });
+            }}
+          />
         </div>
       </div>
       <div style={{ height: "140px" }}>

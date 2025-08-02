@@ -1,8 +1,10 @@
 // world.ts
+import {  PlayerInputSystem } from "./systems/PlayerInputSystem";
 import { MovementSystem } from "./systems/MovementSystem";
 import { runScripts } from "./systems/Scripting";
 
 export const worldTick = (delta: number) => {
+  PlayerInputSystem();
   MovementSystem(delta);
   runScripts(delta);
 };
