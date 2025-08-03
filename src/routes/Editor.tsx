@@ -24,6 +24,7 @@ import { TextureLoader } from "three";
 
 import { Velocity } from "../ecs/components/Velocity";
 import { PlayerControlled } from "../ecs/components/PlayerControlled";
+import PerspectiveGizmo from "../ecs/components/PerspectiveGizmo";
 
 function EntityRenderer({
   id,
@@ -174,6 +175,26 @@ export function Editor() {
   const [transformMode, setTransformMode] = useState<
     "translate" | "rotate" | "scale"
   >("translate");
+  function handleAxisClick(axis: "x" | "y" | "z") {
+    const camera = orbitRef.current?.object;
+    if (!camera) return;
+
+    const distance = 10;
+
+    switch (axis) {
+      case "x":
+        camera.position.set(distance, 0, 0);
+        break;
+      case "y":
+        camera.position.set(0, distance, 0);
+        break;
+      case "z":
+        camera.position.set(0, 0, distance);
+        break;
+    }
+    orbitRef.current?.update();
+  }
+
   useEffect(() => {
     const cam = Array.from(allEntities).find(
       (id) => MeshComponent.get(id)?.geometry === "camera"
@@ -272,6 +293,7 @@ export function Editor() {
           <Canvas shadows camera={{ position: [0, 5, 10], fov: 50 }}>
             {/* Lighting & Sky */}
             <ambientLight intensity={0.5} />
+
             <directionalLight
               position={[5, 10, 5]}
               intensity={1.5}
@@ -355,6 +377,27 @@ export function Editor() {
               />
             ))}
           </Canvas>
+          {/* 🧭 Perspective Gizmo Overlay */}
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              width: "100px",
+              height: "100px",
+              zIndex: 20,
+              pointerEvents: "none",
+            }}
+          >
+            <Canvas
+              orthographic
+              camera={{ zoom: 80, position: [2, 2, 2], near: 0.1, far: 10 }}
+              style={{ background: "rgba(0,0,0,0)", pointerEvents: "auto" }}
+            >
+              <ambientLight />
+              <PerspectiveGizmo onClickAxis={handleAxisClick} />
+            </Canvas>
+          </div>
 
           {/* ➕ Add Entity Button */}
           <div
