@@ -7,6 +7,8 @@ import { allEntities, createEntity } from "../ecs/Entity";
 import { OrbitControls } from "@react-three/drei";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { worldTick } from "../ecs/world";
+import { Physics, RigidBody } from "@react-three/rapier";
+
 import {
   addTransform,
   getTransform,
@@ -59,36 +61,66 @@ function EntityRenderer({
   let geometry: JSX.Element;
 
   switch (meshData.geometry) {
+    case "plane":
+      geometry = (
+        <RigidBody type="fixed" colliders="cuboid">
+          <mesh receiveShadow position={[0, -1, 0]}>
+            <boxGeometry args={[100, 1, 100]} />
+            <meshStandardMaterial color={meshData.color} map={texture} />
+          </mesh>
+        </RigidBody>
+      );
+      break;
     case "sphere":
       geometry = (
-        <mesh>
-          <sphereGeometry args={[0.5, 32, 32]} />
-          <meshStandardMaterial color={meshData.color} map={texture} />
-        </mesh>
+        <RigidBody
+          type="dynamic"
+          colliders="ball"
+          position={[
+            transform.position.x,
+            transform.position.y,
+            transform.position.z,
+          ]}
+          rotation={[
+            transform.rotation.x,
+            transform.rotation.y,
+            transform.rotation.z,
+          ]}
+          scale={[transform.scale.x, transform.scale.y, transform.scale.z]}
+        >
+          <mesh>
+            <sphereGeometry args={[0.5, 32, 32]} />
+            <meshStandardMaterial color={meshData.color} map={texture} />
+          </mesh>
+        </RigidBody>
       );
       break;
     case "camera":
       geometry = (
-        <group>
-          <mesh rotation={[Math.PI / 2, 0, Math.PI / 2]}>
-            <boxGeometry args={[0.4, 0.25, 0.25]} />
-            <meshStandardMaterial color={meshData.color} map={texture} />
-          </mesh>
-          <mesh position={[0, 0, -0.3]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.1, 0.2, 8]} />
-            <meshStandardMaterial color="black" map={texture} />
-          </mesh>
-        </group>
+        <RigidBody type="fixed">
+          <group>
+            <mesh rotation={[Math.PI / 2, 0, Math.PI / 2]}>
+              <boxGeometry args={[0.4, 0.25, 0.25]} />
+              <meshStandardMaterial color={meshData.color} map={texture} />
+            </mesh>
+            <mesh position={[0, 0, -0.3]} rotation={[Math.PI / 2, 0, 0]}>
+              <coneGeometry args={[0.1, 0.2, 8]} />
+              <meshStandardMaterial color="black" map={texture} />
+            </mesh>
+          </group>
+        </RigidBody>
       );
       break;
 
     case "box":
     default:
       geometry = (
-        <mesh>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color={meshData.color} map={texture} />
-        </mesh>
+        <RigidBody type="fixed" colliders="cuboid">
+          <mesh>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color={meshData.color} map={texture} />
+          </mesh>
+        </RigidBody>
       );
       break;
   }
@@ -161,7 +193,7 @@ export function Editor() {
   const [cameraEntity, setCameraEntity] = useState<number | null>(null);
   const [entities, setEntities] = useState<number[]>([]);
   const [newEntityShape, setNewEntityShape] = useState<
-    "box" | "sphere" | "camera"
+    "box" | "sphere" | "camera" | "plane"
   >("box");
 
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
@@ -291,91 +323,87 @@ export function Editor() {
         {/* 🎥 Scene View */}
         <div style={{ flexGrow: 1, position: "relative", background: "#111" }}>
           <Canvas shadows camera={{ position: [0, 5, 10], fov: 50 }}>
-            {/* Lighting & Sky */}
-            <ambientLight intensity={0.5} />
+            <Physics debug={false} gravity={[0, -9.81, 0]}>
+              {/* Lighting & Sky */}
+              <ambientLight intensity={0.5} />
 
-            <directionalLight
-              position={[5, 10, 5]}
-              intensity={1.5}
-              castShadow
-            />
-            <Sky
-              sunPosition={[10, 10, 10]}
-              distance={450000}
-              turbidity={10}
-              rayleigh={1}
-              mieCoefficient={0.005}
-              mieDirectionalG={0.8}
-              inclination={0.49}
-              azimuth={0.25}
-            />
-
-            {/* Ground */}
-            <mesh receiveShadow position={[0, -1, 0]}>
-              <boxGeometry args={[100, 1, 100]} />
-              <meshStandardMaterial color="#555" />
-            </mesh>
-
-            {/* 🚀 Use entity camera in play mode */}
-            {isPlaying && cameraEntity && Transform.has(cameraEntity) && (
-              <EntityCamera entityId={cameraEntity} />
-            )}
-
-            {/* 🎮 Orbit controls for editor */}
-            {!isPlaying && <OrbitControls ref={orbitRef} />}
-
-            {/* Transform Gizmo */}
-            {selectedEntityId !== null && Transform.has(selectedEntityId) && (
-              <TransformControls
-                key={selectedEntityId} // 🔑 this ensures remount
-                object={selectedRef.current!}
-                mode={transformMode}
-                onMouseDown={() => {
-                  if (orbitRef.current) orbitRef.current.enabled = false;
-                }}
-                onMouseUp={() => {
-                  if (orbitRef.current) orbitRef.current.enabled = true;
-                }}
-                onObjectChange={() => {
-                  const obj = selectedRef.current;
-                  if (!obj) return;
-
-                  const transform = Transform.get(selectedEntityId);
-                  if (transform) {
-                    transform.position = {
-                      x: obj.position.x,
-                      y: obj.position.y,
-                      z: obj.position.z,
-                    };
-                    transform.rotation = {
-                      x: obj.rotation.x,
-                      y: obj.rotation.y,
-                      z: obj.rotation.z,
-                    };
-                    transform.scale = {
-                      x: obj.scale.x,
-                      y: obj.scale.y,
-                      z: obj.scale.z,
-                    };
-
-                    setTransform(selectedEntityId, transform);
-                    forceUpdate((n) => n + 1);
-                  }
-                }}
+              <directionalLight
+                position={[5, 10, 5]}
+                intensity={1.5}
+                castShadow
               />
-            )}
-
-            {/* Objek lainnya */}
-            {entities.map((id) => (
-              <EntityRenderer
-                key={id}
-                id={id}
-                onSelect={(id) => setSelectedEntityId(id)}
-                selectedEntityId={selectedEntityId}
-                selectedRef={selectedRef}
-                isPlaying={isPlaying}
+              <Sky
+                sunPosition={[10, 10, 10]}
+                distance={450000}
+                turbidity={10}
+                rayleigh={1}
+                mieCoefficient={0.005}
+                mieDirectionalG={0.8}
+                inclination={0.49}
+                azimuth={0.25}
               />
-            ))}
+
+              {/* 🚀 Use entity camera in play mode */}
+              {isPlaying && cameraEntity && Transform.has(cameraEntity) && (
+                <EntityCamera entityId={cameraEntity} />
+              )}
+
+              {/* 🎮 Orbit controls for editor */}
+              {!isPlaying && <OrbitControls ref={orbitRef} />}
+
+              {/* Transform Gizmo */}
+              {selectedEntityId !== null && Transform.has(selectedEntityId) && (
+                <TransformControls
+                  key={selectedEntityId} // 🔑 this ensures remount
+                  object={selectedRef.current!}
+                  mode={transformMode}
+                  onMouseDown={() => {
+                    if (orbitRef.current) orbitRef.current.enabled = false;
+                  }}
+                  onMouseUp={() => {
+                    if (orbitRef.current) orbitRef.current.enabled = true;
+                  }}
+                  onObjectChange={() => {
+                    const obj = selectedRef.current;
+                    if (!obj) return;
+
+                    const transform = Transform.get(selectedEntityId);
+                    if (transform) {
+                      transform.position = {
+                        x: obj.position.x,
+                        y: obj.position.y,
+                        z: obj.position.z,
+                      };
+                      transform.rotation = {
+                        x: obj.rotation.x,
+                        y: obj.rotation.y,
+                        z: obj.rotation.z,
+                      };
+                      transform.scale = {
+                        x: obj.scale.x,
+                        y: obj.scale.y,
+                        z: obj.scale.z,
+                      };
+
+                      setTransform(selectedEntityId, transform);
+                      forceUpdate((n) => n + 1);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Objek lainnya */}
+              {entities.map((id) => (
+                <EntityRenderer
+                  key={id}
+                  id={id}
+                  onSelect={(id) => setSelectedEntityId(id)}
+                  selectedEntityId={selectedEntityId}
+                  selectedRef={selectedRef}
+                  isPlaying={isPlaying}
+                />
+              ))}
+            </Physics>
           </Canvas>
           {/* 🧭 Perspective Gizmo Overlay */}
           <div
@@ -415,7 +443,9 @@ export function Editor() {
             <select
               value={newEntityShape}
               onChange={(e) =>
-                setNewEntityShape(e.target.value as "box" | "sphere" | "camera")
+                setNewEntityShape(
+                  e.target.value as "box" | "sphere" | "camera" | "plane"
+                )
               }
               style={{
                 padding: "6px 10px",
@@ -429,6 +459,7 @@ export function Editor() {
               <option value="box">Box</option>
               <option value="sphere">Sphere</option>
               <option value="camera">Camera</option>
+              <option value="plane">Plane</option>
             </select>
 
             {/* Add Entity Button */}

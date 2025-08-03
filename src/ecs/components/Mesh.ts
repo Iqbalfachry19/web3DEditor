@@ -2,7 +2,7 @@
 import type { Entity } from "../Entity";
 
 export type MeshData = {
-  geometry: "box" | "sphere" | "camera";
+  geometry: "box" | "sphere" | "camera" | "plane";
   color: string;
   texture?: string;
 };
@@ -11,7 +11,7 @@ export const MeshComponent = new Map<Entity, MeshData>();
 
 export const addMesh = (
   entity: Entity,
-  geometry: "box" | "sphere" | "camera" = "box",
+  geometry: "box" | "sphere" | "camera" |"plane" = "box",
   color = "hotpink",
   texture?: string
 ) => {
