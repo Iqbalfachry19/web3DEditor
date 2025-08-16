@@ -8,6 +8,8 @@ import { DocsPage } from "./routes/Docs";
 export default function App() {
   const [started, setStarted] = useState(false);
 
+  console.log("App render - started:", started);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -17,7 +19,10 @@ export default function App() {
         ) : (
           <Route
             path="/main-menu"
-            element={<MainMenu onProjectLoaded={() => setStarted(true)} />}
+            element={<MainMenu onProjectLoaded={() => {
+              console.log("Project loaded, switching to Editor");
+              setStarted(true);
+            }} />}
           />
         )}
         <Route path="/docs" element={<DocsPage />} />

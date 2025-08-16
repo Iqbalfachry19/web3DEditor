@@ -27,6 +27,8 @@ import { TextureLoader } from "three";
 import { Velocity } from "../ecs/components/Velocity";
 import { PlayerControlled } from "../ecs/components/PlayerControlled";
 import PerspectiveGizmo from "../ecs/components/PerspectiveGizmo";
+import { Collision, addCollision } from "../ecs/components/Collision";
+import { deleteEntity } from "../ecs/Entity";
 
 function EntityRenderer({
   id,
@@ -34,12 +36,14 @@ function EntityRenderer({
   isPlaying,
   selectedEntityId,
   selectedRef,
+  onEntityDestroyed,
 }: {
   id: number;
   onSelect: (id: number) => void;
   isPlaying: boolean;
   selectedEntityId: number | null;
   selectedRef: React.MutableRefObject<THREE.Mesh | null>;
+  onEntityDestroyed: (id: number) => void;
 }) {
   const [, forceUpdate] = useState(0);
   useFrame((_, delta) => {
@@ -51,12 +55,20 @@ function EntityRenderer({
 
   const transform = getTransform(id);
   const meshData = MeshComponent.get(id);
+  const collisionData = Collision.get(id);
   const TRANSPARENT_PNG =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==";
   const textureUrl = meshData?.texture ?? TRANSPARENT_PNG;
   const texture = useLoader(TextureLoader, textureUrl);
 
   if (!transform || !meshData) return null;
+
+  // Handle collision events
+  const handleCollision = () => {
+    if (isPlaying && collisionData?.destroyOnCollision) {
+      onEntityDestroyed(id);
+    }
+  };
 
   let geometry: JSX.Element;
 
@@ -87,6 +99,7 @@ function EntityRenderer({
             transform.rotation.z,
           ]}
           scale={[transform.scale.x, transform.scale.y, transform.scale.z]}
+          onCollisionEnter={handleCollision}
         >
           <mesh>
             <sphereGeometry args={[0.5, 32, 32]} />
@@ -115,7 +128,11 @@ function EntityRenderer({
     case "box":
     default:
       geometry = (
-        <RigidBody type="fixed" colliders="cuboid">
+        <RigidBody
+          type="fixed"
+          colliders="cuboid"
+          onCollisionEnter={handleCollision}
+        >
           <mesh>
             <boxGeometry args={[1, 1, 1]} />
             <meshStandardMaterial color={meshData.color} map={texture} />
@@ -190,6 +207,10 @@ export function Editor() {
     new Set()
   );
 
+  // State snapshot for reverting changes when stopping play mode
+  const stateSnapshot = useRef<Map<number, any>>(new Map());
+  const entitiesSnapshot = useRef<number[]>([]);
+
   const [cameraEntity, setCameraEntity] = useState<number | null>(null);
   const [entities, setEntities] = useState<number[]>([]);
   const [newEntityShape, setNewEntityShape] = useState<
@@ -199,7 +220,7 @@ export function Editor() {
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const orbitRef = useRef<OrbitControlsImpl>(null);
-  
+
   // Force re-render when selected entity changes to ensure TransformControls updates
   useEffect(() => {
     forceUpdate((n) => n + 1);
@@ -232,12 +253,119 @@ export function Editor() {
     orbitRef.current?.update();
   }
 
+  // Save current state before playing
+  function saveState() {
+    stateSnapshot.current.clear();
+    entitiesSnapshot.current = [...entities]; // Save the entities list
+
+    // Save complete state for all entities in the entities list
+    entities.forEach((id) => {
+      const transform = Transform.get(id);
+      const velocity = Velocity.get(id);
+      const meshData = MeshComponent.get(id);
+      const name = Name.get(id);
+      const collision = Collision.get(id);
+
+      stateSnapshot.current.set(id, {
+        transform: transform ? {
+          position: { ...transform.position },
+          rotation: { ...transform.rotation },
+          scale: { ...transform.scale },
+        } : null,
+        velocity: velocity ? { ...velocity } : null,
+        meshData: meshData ? { ...meshData } : null,
+        name: name || null,
+        collision: collision ? { ...collision } : null,
+      });
+    });
+  }
+
+  // Restore state when stopping
+  function restoreState() {
+    // Clear all current component data
+    Transform.clear();
+    MeshComponent.clear();
+    Name.clear();
+    Velocity.clear();
+    Collision.clear();
+
+    // Clear allEntities and rebuild it
+    allEntities.clear();
+
+    // Restore all entities from snapshot
+    stateSnapshot.current.forEach((state, id) => {
+      // Re-add entity to allEntities
+      allEntities.add(id);
+
+      // Restore all components
+      if (state.transform) {
+        Transform.set(id, state.transform);
+      }
+      if (state.velocity) {
+        Velocity.set(id, state.velocity);
+      }
+      if (state.meshData) {
+        MeshComponent.set(id, state.meshData);
+      }
+      if (state.name) {
+        Name.set(id, state.name);
+      }
+      if (state.collision) {
+        Collision.set(id, state.collision);
+      }
+    });
+
+    // Restore the entities list for rendering
+    setEntities([...entitiesSnapshot.current]);
+    forceUpdate((n) => n + 1);
+  }
+
+  // Handle play/stop toggle
+  function togglePlayMode() {
+    if (!isPlaying) {
+      // Starting to play - save current state
+      saveState();
+      setIsPlaying(true);
+    } else {
+      // Stopping play - restore saved state
+      restoreState();
+      setIsPlaying(false);
+    }
+  }
+
+  // Handle entity destruction
+  function handleEntityDestroyed(id: number) {
+    if (isPlaying) {
+      // During play mode, only remove from rendering list
+      // Don't delete from allEntities or remove components - keep them for restoration
+      setEntities((prev) => prev.filter((entityId) => entityId !== id));
+      if (selectedEntityId === id) {
+        setSelectedEntityId(null);
+      }
+    } else {
+      // In edit mode, permanently delete
+      deleteEntity(id);
+      // Also remove from all component maps
+      Transform.delete(id);
+      MeshComponent.delete(id);
+      Name.delete(id);
+      Velocity.delete(id);
+      Collision.delete(id);
+      setEntities((prev) => prev.filter((entityId) => entityId !== id));
+      if (selectedEntityId === id) {
+        setSelectedEntityId(null);
+      }
+    }
+    forceUpdate((n) => n + 1);
+  }
+
   useEffect(() => {
     const cam = Array.from(allEntities).find(
       (id) => MeshComponent.get(id)?.geometry === "camera"
     );
     setCameraEntity(cam ?? null);
   }, [entities, isPlaying]);
+
   useEffect(() => {
     Transform.clear();
     // Leave this empty to avoid creating entities at start
@@ -300,7 +428,7 @@ export function Editor() {
         </div>
         <div
           style={{ marginRight: "15px", cursor: "pointer" }}
-          onClick={() => setIsPlaying((prev) => !prev)}
+          onClick={togglePlayMode}
         >
           {isPlaying ? "⏹ Stop" : "▶️ Play"}
         </div>
@@ -356,48 +484,49 @@ export function Editor() {
               {/* 🎮 Orbit controls for editor */}
               {!isPlaying && <OrbitControls ref={orbitRef} />}
 
-              {/* Transform Gizmo */}
-              {selectedEntityId !== null && 
-               Transform.has(selectedEntityId) && 
-               selectedRef.current && (
-                <TransformControls
-                  key={selectedEntityId} // 🔑 this ensures remount
-                  object={selectedRef.current}
-                  mode={transformMode}
-                  onMouseDown={() => {
-                    if (orbitRef.current) orbitRef.current.enabled = false;
-                  }}
-                  onMouseUp={() => {
-                    if (orbitRef.current) orbitRef.current.enabled = true;
-                  }}
-                  onObjectChange={() => {
-                    const obj = selectedRef.current;
-                    if (!obj) return;
+              {/* Transform Gizmo - only active in edit mode */}
+              {!isPlaying &&
+                selectedEntityId !== null &&
+                Transform.has(selectedEntityId) &&
+                selectedRef.current && (
+                  <TransformControls
+                    key={selectedEntityId} // 🔑 this ensures remount
+                    object={selectedRef.current}
+                    mode={transformMode}
+                    onMouseDown={() => {
+                      if (orbitRef.current) orbitRef.current.enabled = false;
+                    }}
+                    onMouseUp={() => {
+                      if (orbitRef.current) orbitRef.current.enabled = true;
+                    }}
+                    onObjectChange={() => {
+                      const obj = selectedRef.current;
+                      if (!obj) return;
 
-                    const transform = Transform.get(selectedEntityId);
-                    if (transform) {
-                      transform.position = {
-                        x: obj.position.x,
-                        y: obj.position.y,
-                        z: obj.position.z,
-                      };
-                      transform.rotation = {
-                        x: obj.rotation.x,
-                        y: obj.rotation.y,
-                        z: obj.rotation.z,
-                      };
-                      transform.scale = {
-                        x: obj.scale.x,
-                        y: obj.scale.y,
-                        z: obj.scale.z,
-                      };
+                      const transform = Transform.get(selectedEntityId);
+                      if (transform) {
+                        transform.position = {
+                          x: obj.position.x,
+                          y: obj.position.y,
+                          z: obj.position.z,
+                        };
+                        transform.rotation = {
+                          x: obj.rotation.x,
+                          y: obj.rotation.y,
+                          z: obj.rotation.z,
+                        };
+                        transform.scale = {
+                          x: obj.scale.x,
+                          y: obj.scale.y,
+                          z: obj.scale.z,
+                        };
 
-                      setTransform(selectedEntityId, transform);
-                      forceUpdate((n) => n + 1);
-                    }
-                  }}
-                />
-              )}
+                        setTransform(selectedEntityId, transform);
+                        forceUpdate((n) => n + 1);
+                      }
+                    }}
+                  />
+                )}
 
               {/* Objek lainnya */}
               {entities.map((id) => (
@@ -408,6 +537,7 @@ export function Editor() {
                   selectedEntityId={selectedEntityId}
                   selectedRef={selectedRef}
                   isPlaying={isPlaying}
+                  onEntityDestroyed={handleEntityDestroyed}
                 />
               ))}
             </Physics>
@@ -496,6 +626,8 @@ export function Editor() {
                 addTransform(id, newPos);
                 addMesh(id, newEntityShape, "white"); // Use newEntityShape
                 Velocity.set(id, { x: 0, y: 0, z: 0 });
+                // Initialize collision component (disabled by default)
+                addCollision(id, false);
 
                 // Update the entities array for rendering
                 setEntities((prev) => [...prev, id]);

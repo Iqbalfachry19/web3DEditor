@@ -5,6 +5,7 @@ import { Transform } from "./ecs/components/Transform";
 import { MeshComponent, setMesh } from "./ecs/components/Mesh";
 import { ScriptComponent } from "./ecs/components/Script";
 import { PlayerControlled } from "./ecs/components/PlayerControlled";
+import { Collision } from "./ecs/components/Collision";
 
 interface Props {
   selectedEntityId: number | null;
@@ -59,12 +60,18 @@ export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
   > | null>(null);
   const [scriptCode, setScriptCode] = useState("");
   const [isControlled, setIsControlled] = useState(false);
+  const [destroyOnCollision, setDestroyOnCollision] = useState(false);
+  const [collisionTag, setCollisionTag] = useState("");
 
   useEffect(() => {
     if (selectedEntityId !== null) {
       const code = ScriptComponent.get(selectedEntityId) || "";
       setScriptCode(code);
       setIsControlled(PlayerControlled.has(selectedEntityId));
+
+      const collision = Collision.get(selectedEntityId);
+      setDestroyOnCollision(collision?.destroyOnCollision || false);
+      setCollisionTag(collision?.collisionTag || "");
     }
   }, [selectedEntityId]);
 
@@ -100,19 +107,19 @@ export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
 
   const handleVectorChange =
     (setter: (v: Vector3) => void, current: Vector3, key: "x" | "y" | "z") =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = parseFloat(e.target.value);
-      const updated = current.clone();
-      updated[key] = isNaN(val) ? 0 : val;
-      setter(updated);
-      if (selectedEntityId !== null) {
-        Transform.set(selectedEntityId, {
-          position,
-          rotation,
-          scale,
-        });
-      }
-    };
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        const updated = current.clone();
+        updated[key] = isNaN(val) ? 0 : val;
+        setter(updated);
+        if (selectedEntityId !== null) {
+          Transform.set(selectedEntityId, {
+            position,
+            rotation,
+            scale,
+          });
+        }
+      };
 
   const handleTextureChange = (texturePath: string) => {
     if (selectedEntityId === null || !meshData) return;
@@ -130,6 +137,22 @@ export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
     }
     setIsControlled(checked);
     onToggleControl(checked);
+  };
+
+  const handleCollisionChange = (destroy: boolean, tag: string) => {
+    if (selectedEntityId === null) return;
+
+    if (destroy || tag) {
+      Collision.set(selectedEntityId, {
+        destroyOnCollision: destroy,
+        collisionTag: tag || undefined,
+      });
+    } else {
+      Collision.delete(selectedEntityId);
+    }
+
+    setDestroyOnCollision(destroy);
+    setCollisionTag(tag);
   };
 
   return (
@@ -226,6 +249,31 @@ export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
             <div style={styles.divider} />
           </div>
         )}
+
+        <div style={styles.section}>
+          <div style={styles.sectionLabel}>Collision</div>
+          <label style={{ display: "block", marginBottom: "10px" }}>
+            <input
+              type="checkbox"
+              checked={destroyOnCollision}
+              onChange={(e) => handleCollisionChange(e.target.checked, collisionTag)}
+            />{" "}
+            Destroy on Collision
+          </label>
+          <div style={{ marginBottom: "10px" }}>
+            <label style={{ display: "block", marginBottom: "4px" }}>
+              Collision Tag (optional):
+            </label>
+            <input
+              type="text"
+              value={collisionTag}
+              onChange={(e) => handleCollisionChange(destroyOnCollision, e.target.value)}
+              placeholder="e.g., enemy, projectile"
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.divider} />
+        </div>
 
         <div style={styles.section}>
           <div style={styles.sectionLabel}>Custom Script (JS)</div>
