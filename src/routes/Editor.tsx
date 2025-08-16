@@ -199,6 +199,11 @@ export function Editor() {
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const orbitRef = useRef<OrbitControlsImpl>(null);
+  
+  // Force re-render when selected entity changes to ensure TransformControls updates
+  useEffect(() => {
+    forceUpdate((n) => n + 1);
+  }, [selectedEntityId]);
   const lastPositionRef = useRef<{ x: number; y: number; z: number }>({
     x: -2,
     y: 0,
@@ -352,10 +357,12 @@ export function Editor() {
               {!isPlaying && <OrbitControls ref={orbitRef} />}
 
               {/* Transform Gizmo */}
-              {selectedEntityId !== null && Transform.has(selectedEntityId) && (
+              {selectedEntityId !== null && 
+               Transform.has(selectedEntityId) && 
+               selectedRef.current && (
                 <TransformControls
                   key={selectedEntityId} // 🔑 this ensures remount
-                  object={selectedRef.current!}
+                  object={selectedRef.current}
                   mode={transformMode}
                   onMouseDown={() => {
                     if (orbitRef.current) orbitRef.current.enabled = false;
