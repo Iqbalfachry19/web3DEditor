@@ -10,6 +10,7 @@ import { Collision } from "./ecs/components/Collision";
 interface Props {
   selectedEntityId: number | null;
   onToggleControl: (enabled: boolean) => void;
+  onForceUpdate?: () => void;
 }
 
 const styles = {
@@ -51,7 +52,7 @@ const styles = {
   },
 };
 
-export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
+export function InspectorPanel({ selectedEntityId, onToggleControl, onForceUpdate }: Props) {
   const [position, setPosition] = useState(new Vector3());
   const [rotation, setRotation] = useState(new Vector3());
   const [scale, setScale] = useState(new Vector3(1, 1, 1));
@@ -126,6 +127,8 @@ export function InspectorPanel({ selectedEntityId, onToggleControl }: Props) {
     const updated = { ...meshData, texture: texturePath };
     setMesh(selectedEntityId, updated);
     setMeshData(updated);
+    // Force re-render of EntityRenderer
+    onForceUpdate?.();
   };
 
   const handleToggleControl = (checked: boolean) => {

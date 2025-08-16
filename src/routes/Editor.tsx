@@ -30,6 +30,29 @@ import PerspectiveGizmo from "../ecs/components/PerspectiveGizmo";
 import { Collision, addCollision } from "../ecs/components/Collision";
 import { deleteEntity } from "../ecs/Entity";
 
+// Component to sync visual mesh rotation with physics body
+function PhysicsSyncedMesh({
+  children,
+  rigidBodyRef
+}: {
+  children: React.ReactNode;
+  rigidBodyRef: React.MutableRefObject<any>;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (meshRef.current && rigidBodyRef.current) {
+      // Sync the visual mesh rotation with the physics body rotation
+      const rotation = rigidBodyRef.current.rotation();
+      meshRef.current.setRotationFromQuaternion(
+        new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
+      );
+    }
+  });
+
+  return <mesh ref={meshRef}>{children}</mesh>;
+}
+
 function EntityRenderer({
   id,
   onSelect,
@@ -37,6 +60,7 @@ function EntityRenderer({
   selectedEntityId,
   selectedRef,
   onEntityDestroyed,
+  isGizmoInteracting,
 }: {
   id: number;
   onSelect: (id: number) => void;
@@ -44,6 +68,7 @@ function EntityRenderer({
   selectedEntityId: number | null;
   selectedRef: React.MutableRefObject<THREE.Mesh | null>;
   onEntityDestroyed: (id: number) => void;
+  isGizmoInteracting: boolean;
 }) {
   const [, forceUpdate] = useState(0);
   useFrame((_, delta) => {
@@ -58,8 +83,19 @@ function EntityRenderer({
   const collisionData = Collision.get(id);
   const TRANSPARENT_PNG =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==";
-  const textureUrl = meshData?.texture ?? TRANSPARENT_PNG;
+  const textureUrl = (meshData?.texture && meshData.texture.trim() !== "") ? meshData.texture : TRANSPARENT_PNG;
   const texture = useLoader(TextureLoader, textureUrl);
+
+  // Ensure texture is valid
+  if (!texture) {
+    console.warn(`Failed to load texture: ${textureUrl}`);
+  }
+
+  // Force re-render when mesh data changes (including texture)
+  const [meshVersion, setMeshVersion] = useState(0);
+  useEffect(() => {
+    setMeshVersion(prev => prev + 1);
+  }, [meshData?.texture]);
 
   if (!transform || !meshData) return null;
 
@@ -75,7 +111,12 @@ function EntityRenderer({
   switch (meshData.geometry) {
     case "plane":
       geometry = (
-        <RigidBody type="fixed" colliders="cuboid">
+        <RigidBody
+          type="fixed"
+          colliders="cuboid"
+          friction={0.7}        // Friction for ball to roll on
+          restitution={0.3}     // Slight bounce on ground
+        >
           <mesh receiveShadow position={[0, -1, 0]}>
             <boxGeometry args={[100, 1, 100]} />
             <meshStandardMaterial color={meshData.color} map={texture} />
@@ -84,9 +125,13 @@ function EntityRenderer({
       );
       break;
     case "sphere":
+      const rigidBodyRef = useRef<any>(null);
+
       geometry = (
         <RigidBody
-          type="dynamic"
+          ref={rigidBodyRef}
+          key={`${id}-${isPlaying ? 'play' : 'edit'}`} // Force remount on mode change
+          type={isPlaying ? "dynamic" : "fixed"}
           colliders="ball"
           position={[
             transform.position.x,
@@ -98,13 +143,25 @@ function EntityRenderer({
             transform.rotation.y,
             transform.rotation.z,
           ]}
-          scale={[transform.scale.x, transform.scale.y, transform.scale.z]}
+          // Realistic ball physics properties
+          friction={0.7}        // Good friction for rolling
+          restitution={0.6}     // Moderate bounciness
+          density={1.0}         // Standard density
+          linearDamping={0.1}   // Air resistance
+          angularDamping={0.1}  // Rolling resistance
           onCollisionEnter={handleCollision}
         >
-          <mesh>
-            <sphereGeometry args={[0.5, 32, 32]} />
-            <meshStandardMaterial color={meshData.color} map={texture} />
-          </mesh>
+          {isPlaying ? (
+            <PhysicsSyncedMesh rigidBodyRef={rigidBodyRef}>
+              <sphereGeometry args={[0.5 * transform.scale.x, 32, 32]} />
+              <meshStandardMaterial color={meshData.color} map={texture} />
+            </PhysicsSyncedMesh>
+          ) : (
+            <mesh>
+              <sphereGeometry args={[0.5 * transform.scale.x, 32, 32]} />
+              <meshStandardMaterial color={meshData.color} map={texture} />
+            </mesh>
+          )}
         </RigidBody>
       );
       break;
@@ -131,6 +188,8 @@ function EntityRenderer({
         <RigidBody
           type="fixed"
           colliders="cuboid"
+          friction={0.7}        // Friction for realistic interaction
+          restitution={0.4}     // Moderate bounce
           onCollisionEnter={handleCollision}
         >
           <mesh>
@@ -142,6 +201,25 @@ function EntityRenderer({
       break;
   }
 
+  // For spheres, we need special handling since they use RigidBody
+  if (meshData.geometry === "sphere") {
+    return (
+      <group
+        key={id}
+        ref={id === selectedEntityId ? selectedRef : undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!isGizmoInteracting) {
+            onSelect(id);
+          }
+        }}
+      >
+        {geometry}
+      </group>
+    );
+  }
+
+  // For other objects, use positioned wrapper
   return (
     <mesh
       key={id}
@@ -159,7 +237,9 @@ function EntityRenderer({
       scale={[transform.scale.x, transform.scale.y, transform.scale.z]}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(id);
+        if (!isGizmoInteracting) {
+          onSelect(id);
+        }
       }}
     >
       {geometry}
@@ -233,6 +313,7 @@ export function Editor() {
   const [transformMode, setTransformMode] = useState<
     "translate" | "rotate" | "scale"
   >("translate");
+  const [isGizmoInteracting, setIsGizmoInteracting] = useState(false);
   function handleAxisClick(axis: "x" | "y" | "z") {
     const camera = orbitRef.current?.object;
     if (!camera) return;
@@ -450,6 +531,7 @@ export function Editor() {
           <HierarchyPanel
             selectedId={selectedEntityId}
             onSelect={(id) => setSelectedEntityId(id)}
+            onDelete={(id) => handleEntityDestroyed(id)}
           />
         </div>
 
@@ -494,10 +576,13 @@ export function Editor() {
                     object={selectedRef.current}
                     mode={transformMode}
                     onMouseDown={() => {
+                      setIsGizmoInteracting(true);
                       if (orbitRef.current) orbitRef.current.enabled = false;
                     }}
                     onMouseUp={() => {
                       if (orbitRef.current) orbitRef.current.enabled = true;
+                      // Delay clearing the interaction state to prevent immediate entity selection
+                      setTimeout(() => setIsGizmoInteracting(false), 100);
                     }}
                     onObjectChange={() => {
                       const obj = selectedRef.current;
@@ -522,6 +607,7 @@ export function Editor() {
                         };
 
                         setTransform(selectedEntityId, transform);
+                        // Force re-render to update RigidBody position
                         forceUpdate((n) => n + 1);
                       }
                     }}
@@ -538,6 +624,7 @@ export function Editor() {
                   selectedRef={selectedRef}
                   isPlaying={isPlaying}
                   onEntityDestroyed={handleEntityDestroyed}
+                  isGizmoInteracting={isGizmoInteracting}
                 />
               ))}
             </Physics>
@@ -714,6 +801,7 @@ export function Editor() {
                 return updated;
               });
             }}
+            onForceUpdate={() => forceUpdate((n) => n + 1)}
           />
         </div>
       </div>
